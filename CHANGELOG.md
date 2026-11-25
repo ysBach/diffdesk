@@ -11,6 +11,9 @@ First release.
 - `diffdesk mcp`: MCP server on standard input and output with the tools
   `add_subject`, `list_reviews`, `get_agent_guide` and `validate_subjects`.
   It supports MCP revisions 2026-07-28, 2025-11-25 and 2025-06-18.
+- Commands that take a review root find it in this order: the folder argument
+  (`--root` for `diffdesk mcp`), the environment variable `DIFFDESK_ROOT`, the
+  current folder.
 - HTTP API version 1: `/api/meta`, `/api/tree`, `/api/subjects`, `/api/subject`,
   `/api/flow`, `/api/treemap`, `/api/diff`, `POST /api/review`, `POST /api/edit`.
 - Subject index cached by file modification time, line counts cached in

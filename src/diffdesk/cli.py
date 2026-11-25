@@ -45,6 +45,23 @@ editor = "codemirror"
 """
 
 
+def resolve_root(arg: str | None) -> Path:
+    """Return the review root of a command.
+
+    Parameters
+    ----------
+    arg : str or None
+        The review root given on the command line, if any.
+
+    Returns
+    -------
+    Path
+        `arg` if it is given, else the environment variable ``DIFFDESK_ROOT``
+        if it is set and not empty, else the current folder.
+    """
+    return Path(arg or os.environ.get("DIFFDESK_ROOT") or ".")
+
+
 def cmd_validate(root: Path) -> int:
     """Check every subject file of a review root and print the problems.
 
@@ -232,18 +249,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--version", action="version", version=f"diffdesk {__version__}")
     parser.add_argument("-v", "--verbose", action="store_true", help="log every request")
     sub = parser.add_subparsers(dest="command", required=True)
-    serve = sub.add_parser("serve", help="serve the review desk on a local port")
-    serve.add_argument("root", nargs="?", default=".", help="review root (default: .)")
+    root_help = "review root (default: $DIFFDESK_ROOT, else the current folder)"
+    root_arg = argparse.ArgumentParser(add_help=False)
+    root_arg.add_argument("root", nargs="?", help=root_help)
+    serve = sub.add_parser(
+        "serve", parents=[root_arg], help="serve the review desk on a local port"
+    )
     serve.add_argument("--host", default="127.0.0.1", help="address to bind (default: 127.0.0.1)")
     serve.add_argument("--port", type=int, default=8765, help="port (default: 8765; 0: any)")
     serve.add_argument("--open", action="store_true", help="open the page in the browser")
-    init = sub.add_parser("init", help="create a review root")
-    init.add_argument("root", nargs="?", default=".", help="review root (default: .)")
-    validate = sub.add_parser("validate", help="check every subject file")
-    validate.add_argument("root", nargs="?", default=".", help="review root (default: .)")
+    sub.add_parser("init", parents=[root_arg], help="create a review root")
+    sub.add_parser("validate", parents=[root_arg], help="check every subject file")
 
-    add = sub.add_parser("add", help="write a subject file for a git commit")
-    add.add_argument("root", nargs="?", default=".", help="review root (default: .)")
+    add = sub.add_parser("add", parents=[root_arg], help="write a subject file for a git commit")
     add.add_argument("--repo", default=".", help="folder inside the git work tree (default: .)")
     add.add_argument("--commit", help="commit to review against its first parent (default: HEAD)")
     add.add_argument("--base", help="old side of the diff; use with --head")
@@ -264,8 +282,7 @@ def main(argv: list[str] | None = None) -> int:
     add.add_argument("--force", action="store_true", help="replace an existing subject file")
     add.add_argument("--json", action="store_true", help="print the written subject as JSON")
 
-    reviews = sub.add_parser("reviews", help="print verdicts and edits")
-    reviews.add_argument("root", nargs="?", default=".", help="review root (default: .)")
+    reviews = sub.add_parser("reviews", parents=[root_arg], help="print verdicts and edits")
     reviews.add_argument(
         "--status",
         action="append",
@@ -281,9 +298,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("guide", help="print the guide for coding agents")
     mcp = sub.add_parser("mcp", help="run an MCP server on standard input and output")
-    mcp.add_argument(
-        "--root", help="review root (default: $DIFFDESK_ROOT, else the current folder)"
-    )
+    mcp.add_argument("--root", help=root_help)
     args = parser.parse_args(argv)
 
     logging.basicConfig(
@@ -293,9 +308,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "guide":
         sys.stdout.write(GUIDE_PATH.read_text(encoding="utf-8"))
         return 0
+    root = resolve_root(args.root)
     if args.command == "mcp":
-        return serve_stdio(Path(args.root or os.environ.get("DIFFDESK_ROOT") or "."))
-    root = Path(args.root)
+        return serve_stdio(root)
     try:
         if args.command == "serve":
             return cmd_serve(root, args.host, args.port, args.open)

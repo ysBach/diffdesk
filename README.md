@@ -56,6 +56,10 @@ review/
   .diffdesk-cache/       written by diffdesk: line counts (safe to delete)
 ```
 
+Commands that take a review root (`serve`, `init`, `validate`, `add`, `reviews`
+and `mcp`) find it in this order: the folder on the command line (`--root PATH`
+for `mcp`), the environment variable `DIFFDESK_ROOT`, the current folder.
+
 ## Subject JSON fields
 
 Only `id` and `title` are required. `subject.schema.json` (JSON Schema draft

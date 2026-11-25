@@ -8,6 +8,8 @@ version of a file. You read the verdicts and the edits back with one command.
 
 ## Steps
 
+`REVIEW_ROOT` is optional: without it, diffdesk uses `$DIFFDESK_ROOT`, else the current folder.
+
 1. Make one commit for each change. Do not put unrelated changes in one commit.
 
 2. Write a subject for the commit:

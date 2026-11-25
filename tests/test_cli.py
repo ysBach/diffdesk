@@ -1,4 +1,4 @@
-"""Command line: validate, init, and the configuration file."""
+"""Command line: validate, init, the review root and the configuration file."""
 
 from __future__ import annotations
 
@@ -9,8 +9,9 @@ from pathlib import Path
 import pytest
 from conftest import Client, commit, git, write_subject
 
+from diffdesk import cli
 from diffdesk.cli import main
-from diffdesk.config import ConfigError, load_config
+from diffdesk.config import Config, ConfigError, load_config
 from diffdesk.server import DiffdeskServer
 
 
@@ -134,3 +135,81 @@ def test_cli_reports_config_error(tmp_path: Path, capsys: pytest.CaptureFixture[
     (tmp_path / "diffdesk.toml").write_text('[paths]\ncache = "../x"\n')
     assert main(["validate", str(tmp_path)]) == 2
     assert "must be relative" in capsys.readouterr().err
+
+
+def choose_root(how: str, wanted: Path, other: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Make `wanted` the review root by `how`; return the root argument (empty if none).
+
+    `other` is the current folder for "argument" and "env", and also the value of
+    ``DIFFDESK_ROOT`` for "argument", so a wrong order picks `other`.
+    """
+    if how == "argument":
+        monkeypatch.setenv("DIFFDESK_ROOT", str(other))
+        monkeypatch.chdir(other)
+        return [str(wanted)]
+    if how == "env":
+        monkeypatch.setenv("DIFFDESK_ROOT", str(wanted))
+        monkeypatch.chdir(other)
+        return []
+    monkeypatch.delenv("DIFFDESK_ROOT", raising=False)
+    monkeypatch.chdir(wanted)
+    return []
+
+
+ROOT_SOURCES = ["argument", "env", "cwd"]
+
+
+@pytest.mark.parametrize("how", ROOT_SOURCES)
+@pytest.mark.parametrize(
+    ("command", "expected"),
+    [(["validate"], "7 subject files"), (["reviews", "--format", "text"], "7 subjects")],
+)
+def test_root_order_for_reading_commands(
+    root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    how: str,
+    command: list[str],
+    expected: str,
+) -> None:
+    other = tmp_path / "other"
+    write_subject(other, "p", {"id": "X", "title": "t"})
+    arg = choose_root(how, root, other, monkeypatch)
+    assert main([command[0], *arg, *command[1:]]) == 0
+    assert expected in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("how", ROOT_SOURCES)
+def test_root_order_for_init(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, how: str) -> None:
+    wanted, other = tmp_path / "wanted", tmp_path / "other"
+    wanted.mkdir()
+    other.mkdir()
+    assert main(["init", *choose_root(how, wanted, other, monkeypatch)]) == 0
+    assert (wanted / "diffdesk.toml").is_file()
+    assert not (other / "diffdesk.toml").exists()
+
+
+@pytest.mark.parametrize("how", ROOT_SOURCES)
+def test_root_order_for_serve_and_mcp(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, how: str
+) -> None:
+    wanted, other = tmp_path / "wanted", tmp_path / "other"
+    wanted.mkdir()
+    other.mkdir()
+    seen: list[Path] = []
+
+    def no_server(config: Config, host: str, port: int) -> None:
+        seen.append(config.root)
+        raise OSError("no server in this test")
+
+    def no_stdio(root: Path) -> int:
+        seen.append(root.resolve())
+        return 0
+
+    monkeypatch.setattr(cli, "DiffdeskServer", no_server)
+    monkeypatch.setattr(cli, "serve_stdio", no_stdio)
+    arg = choose_root(how, wanted, other, monkeypatch)
+    assert main(["serve", *arg]) == 1
+    assert main(["mcp", *(["--root", *arg] if arg else [])]) == 0
+    assert seen == [wanted.resolve(), wanted.resolve()]
