@@ -8,17 +8,35 @@ dynamic = ["version"]
 description = "Local, file-based review desk for commits made by agents or people"
 readme = "README.md"
 license = "MIT"
-license-files = ["LICENSE"]
+license-files = [
+    "LICENSE",
+    "src/diffdesk/static/vendor/LICENSES.txt",
+    "src/diffdesk/static/vendor/fonts/OFL.txt",
+]
 requires-python = ">=3.11"
 dependencies = []
+keywords = ["code review", "git", "diff", "review", "coding agents", "mcp"]
 classifiers = [
     "Development Status :: 3 - Alpha",
+    "Environment :: Console",
     "Environment :: Web Environment",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Software Development :: Quality Assurance",
     "Topic :: Software Development :: Version Control :: Git",
 ]
+
+[project.urls]
+Homepage = "https://github.com/ysBach/diffdesk"
+Issues = "https://github.com/ysBach/diffdesk/issues"
+Changelog = "https://github.com/ysBach/diffdesk/blob/main/CHANGELOG.md"
 
 [project.scripts]
 diffdesk = "diffdesk.cli:main"
@@ -33,7 +51,17 @@ path = "src/diffdesk/__init__.py"
 packages = ["src/diffdesk"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/diffdesk", "tests", "vendor-src/package.json", "vendor-src/package-lock.json", "vendor-src/build.mjs", "README.md", "CHANGELOG.md", "LICENSE"]
+include = [
+    "src/diffdesk",
+    "tests",
+    "vendor-src/package.json",
+    "vendor-src/package-lock.json",
+    "vendor-src/build.mjs",
+    "vendor-src/OFL.txt",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

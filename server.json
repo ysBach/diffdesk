@@ -1,0 +1,36 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.ysBach/diffdesk",
+  "title": "diffdesk",
+  "description": "Local review desk for agent commits: add review subjects, read verdicts, comments and edits",
+  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/ysBach/diffdesk",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "diffdesk",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "DIFFDESK_ROOT",
+          "description": "Review root folder. Default: the folder the server starts in.",
+          "format": "filepath",
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}
