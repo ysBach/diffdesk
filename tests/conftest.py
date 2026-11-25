@@ -52,7 +52,7 @@ def commit(repo: Path, files: dict[str, str | bytes | None], message: str) -> st
         if isinstance(content, bytes):
             path.write_bytes(content)
         else:
-            path.write_text(content, encoding="utf-8")
+            path.write_text(content, encoding="utf-8", newline="\n")
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "-m", message)
     return git(repo, "rev-parse", "HEAD")
