@@ -175,8 +175,9 @@ def test_write_atomic_keeps_mode(tmp_path: Path) -> None:
     target = tmp_path / "f.json"
     target.write_text("old")
     target.chmod(0o640)
+    mode = stat.S_IMODE(target.stat().st_mode)  # Windows keeps only the read-only bit.
     index.write_atomic(target, b"new")
-    assert target.read_bytes() == b"new" and stat.S_IMODE(target.stat().st_mode) == 0o640
+    assert target.read_bytes() == b"new" and stat.S_IMODE(target.stat().st_mode) == mode
     fresh = tmp_path / "sub" / "g.json"
     index.write_atomic(fresh, b"x")
     assert stat.S_IMODE(fresh.stat().st_mode) == 0o666 & ~index._UMASK
