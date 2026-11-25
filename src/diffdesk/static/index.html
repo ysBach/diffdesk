@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>diffdesk</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <script src="js/boot.js"></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <div id="app">
+    <aside id="side">
+      <div class="side-head">
+        <div class="side-title">
+          <h1 id="app-title">diffdesk</h1>
+          <span id="counter" class="counter">Loading...</span>
+        </div>
+        <div class="segmented" role="tablist" aria-label="Overview">
+          <button type="button" role="tab" data-view="tree" aria-selected="true">Tree</button>
+          <button type="button" role="tab" data-view="flow" aria-selected="false">Flow</button>
+          <button type="button" role="tab" data-view="treemap" aria-selected="false">Treemap</button>
+        </div>
+        <div class="filters">
+          <input id="q" type="search" placeholder="Search ID, title or summary" autocomplete="off" aria-label="Search subjects">
+          <select id="status-filter" aria-label="Show only this status">
+            <option value="">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="accepted">Accepted</option>
+            <option value="rejected">Rejected</option>
+            <option value="change">Change requested</option>
+          </select>
+        </div>
+        <div id="pkg-filter" class="pkg-filter" hidden>
+          <span>Package: <b id="pkg-filter-name"></b></span>
+          <button type="button" id="pkg-filter-clear" class="link" title="Show all packages">Show all</button>
+        </div>
+      </div>
+      <div id="view-tree" class="view tree" role="tree" tabindex="0" aria-label="Subjects by package and branch"></div>
+      <div id="view-flow" class="view flow" hidden></div>
+      <div id="view-treemap" class="view treemap" hidden></div>
+    </aside>
+
+    <main id="main">
+      <div class="toolbar">
+        <div class="segmented" role="group" aria-label="Diff editor">
+          <button type="button" data-editor="codemirror" aria-pressed="true" title="Bundled editor, works offline">CodeMirror</button>
+          <button type="button" data-editor="monaco" aria-pressed="false" title="Loads from cdn.jsdelivr.net when chosen">Monaco</button>
+        </div>
+        <span class="grow"></span>
+        <button type="button" id="refresh" title="Read the subject, verdict and edit files again">Refresh</button>
+        <button type="button" id="settings-open" class="icon" title="Settings" aria-label="Settings">&#9881;</button>
+      </div>
+
+      <div id="empty" class="empty">Select a subject on the left.</div>
+
+      <section id="subject" hidden>
+        <header id="s-head">
+          <div class="title-row">
+            <span id="s-id" class="sid"></span>
+            <h2 id="s-title"></h2>
+            <span id="s-status"></span>
+          </div>
+          <div id="s-tags" class="tags"></div>
+          <dl id="s-facts" class="facts"></dl>
+          <p id="s-summary" class="summary"></p>
+          <details id="why-panel">
+            <summary>Why</summary>
+            <div id="s-why" class="markdown"></div>
+          </details>
+          <details id="more-panel">
+            <summary>Details</summary>
+            <dl id="s-more" class="facts"></dl>
+          </details>
+        </header>
+
+        <div id="no-diff" class="no-diff" hidden>This subject has no isolable diff. The old and new code are in the Why text.</div>
+
+        <div id="diff-area">
+          <div id="file-tabs" class="file-tabs" role="tablist" aria-label="Files"></div>
+          <div id="file-info" class="file-info"></div>
+          <div id="editor" class="editor"></div>
+        </div>
+
+        <footer id="verdict-bar">
+          <textarea id="comment" rows="2" placeholder="Comment (optional). It is saved with the verdict."></textarea>
+          <div class="buttons">
+            <button type="button" id="btn-accept" class="accept">Accept diff</button>
+            <button type="button" id="btn-reject" class="reject">Reject diff</button>
+            <button type="button" id="btn-change" class="change">Request change</button>
+            <span class="gap"></span>
+            <button type="button" id="btn-save" class="save" disabled title="Save the right side of every changed file (Cmd+S or Ctrl+S in the editor)">Save edit</button>
+            <button type="button" id="btn-discard" disabled>Discard edit</button>
+          </div>
+          <div id="last-verdict" class="last-verdict"></div>
+          <div id="message" class="message" role="status" aria-live="polite"></div>
+        </footer>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="settings" aria-labelledby="settings-title">
+    <form method="dialog" class="settings-form">
+      <div class="dialog-head">
+        <h2 id="settings-title">Settings</h2>
+        <button type="submit" class="icon" aria-label="Close settings">&times;</button>
+      </div>
+      <div id="settings-fields" class="settings-fields"></div>
+      <h3>Keyboard shortcuts</h3>
+      <table id="shortcut-list" class="shortcuts"></table>
+      <div class="dialog-foot">
+        <button type="button" id="settings-reset">Reset to defaults</button>
+        <button type="submit">Close</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="ask-dialog" aria-labelledby="ask-title">
+    <form method="dialog">
+      <h2 id="ask-title"></h2>
+      <p id="ask-text"></p>
+      <div id="ask-buttons" class="dialog-foot"></div>
+    </form>
+  </dialog>
+
+  <div id="tooltip" class="tooltip" hidden></div>
+</body>
+</html>
