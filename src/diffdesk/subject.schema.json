@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ysBach/diffdesk/subject.schema.json",
+  "title": "diffdesk subject",
+  "description": "One change to review: a commit range plus the reasons for it. Unknown fields are allowed and shown in the 'More' table.",
+  "type": "object",
+  "required": ["id", "title"],
+  "additionalProperties": true,
+  "$defs": {
+    "name": {
+      "type": "string",
+      "pattern": "^(?!.*\\.\\.)[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "revision": {
+      "type": ["string", "null"],
+      "pattern": "^(?!-)(?!.*\\.\\.)[^\\s:\\u0000-\\u001f\\u007f]+$"
+    },
+    "relpath": {
+      "type": "string",
+      "pattern": "^(?![/~])(?!(.*/)?\\.\\.?(/|$))(?!.*//)(?!.*/$)[^\\\\\\u0000-\\u001f\\u007f]+$"
+    },
+    "strings": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/name",
+      "description": "Subject ID: letters, digits, '.', '_' and '-', starting with a letter or digit, without '..'. Unique inside its package."
+    },
+    "package": {
+      "$ref": "#/$defs/name",
+      "description": "Package name. Default: the first folder below the subjects folder."
+    },
+    "title": {"type": "string", "minLength": 1, "description": "One-line title."},
+    "priority": {"type": "string", "description": "For example P1, P2, P3."},
+    "origin": {"type": "string", "description": "Who made the change, for example new or gpt."},
+    "recommended": {"type": "string", "description": "Suggested verdict, for example accept, reject or user-decision."},
+    "decisions": {"$ref": "#/$defs/strings", "description": "IDs of decisions this change depends on."},
+    "summary": {"type": "string", "description": "One sentence: what is wrong and what the change does."},
+    "why": {"type": "string", "description": "Markdown with the reasons. LaTeX in $...$ is allowed."},
+    "refs": {"$ref": "#/$defs/strings", "description": "Paths or links to supporting documents."},
+    "repo": {"type": ["string", "null"], "description": "Absolute path of the git work tree."},
+    "base": {"$ref": "#/$defs/revision", "description": "Old side of the diff (usually the parent commit). Null if there is no diff."},
+    "head": {"$ref": "#/$defs/revision", "description": "New side of the diff. Null if there is no diff."},
+    "files": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/relpath"},
+      "description": "Files to review, relative to the repository. Empty: every file changed between base and head."
+    },
+    "tests": {"type": "string", "description": "Test command and result."},
+    "senior_verdict": {"type": "string", "description": "Verdict of a second reviewer."},
+    "branch": {"type": "string", "minLength": 1, "description": "Branch name. Default: the branch checked out in repo."},
+    "order": {"type": "number", "description": "Position inside the branch when commit order cannot decide."},
+    "depends_on": {"$ref": "#/$defs/strings", "description": "IDs of subjects (or names of packages) this subject depends on."},
+    "tags": {"$ref": "#/$defs/strings", "description": "Free labels, searched by the filter box."}
+  }
+}
