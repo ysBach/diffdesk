@@ -1,25 +1,29 @@
-"""Command line: ``diffdesk serve``, ``diffdesk init`` and ``diffdesk validate``."""
+"""Command line: serve, init, validate, add, reviews and guide."""
 
 from __future__ import annotations
 
 import argparse
 import json
 import logging
-import os
-import re
 import sys
 import webbrowser
 from pathlib import Path
-from typing import Any
 
 from . import __version__, gitio
+from .agent import (
+    GUIDE_PATH,
+    SCHEMA_PATH,
+    collect_reviews,
+    create_subject,
+    schema_errors,
+    subject_files,
+)
 from .config import CONFIG_NAME, ConfigError, load_config
-from .index import DEFAULT_PACKAGE, parse_subject
+from .gitio import GitError, InvalidInput
+from .index import DEFAULT_PACKAGE, STATUSES, parse_subject
 from .server import DiffdeskServer
 
 log = logging.getLogger(__name__)
-
-SCHEMA_PATH = Path(__file__).resolve().parent / "subject.schema.json"
 
 CONFIG_TEMPLATE = """\
 # diffdesk review root. Every value is optional.
@@ -38,92 +42,6 @@ cache = ".diffdesk-cache"
 theme = "system"
 editor = "codemirror"
 """
-
-_TYPES: dict[str, Any] = {
-    "string": lambda v: isinstance(v, str),
-    "number": lambda v: isinstance(v, int | float) and not isinstance(v, bool),
-    "integer": lambda v: isinstance(v, int) and not isinstance(v, bool),
-    "boolean": lambda v: isinstance(v, bool),
-    "null": lambda v: v is None,
-    "array": lambda v: isinstance(v, list),
-    "object": lambda v: isinstance(v, dict),
-}
-
-
-def schema_errors(
-    value: Any, schema: dict[str, Any], root: dict[str, Any], where: str
-) -> list[str]:
-    """Check `value` against a JSON Schema and return the problems found.
-
-    Only the keywords that ``subject.schema.json`` uses are supported:
-    ``$ref`` (inside the same document), ``type``, ``enum``, ``minLength``,
-    ``pattern``, ``items``, ``required``, ``properties`` and
-    ``additionalProperties``. Other keywords are ignored.
-
-    Parameters
-    ----------
-    value : Any
-        Decoded JSON value.
-    schema : dict
-        Schema (or subschema) to check against.
-    root : dict
-        The whole schema document, for ``$ref``.
-    where : str
-        Location of `value`, used in the messages (for example ``$.files[0]``).
-
-    Returns
-    -------
-    list of str
-        One message per problem. Empty if `value` is valid.
-    """
-    errors: list[str] = []
-    if "$ref" in schema:
-        target: Any = root
-        for part in schema["$ref"].removeprefix("#/").split("/"):
-            target = target[part]
-        errors += schema_errors(value, target, root, where)
-    types = schema.get("type")
-    if types is not None:
-        types = [types] if isinstance(types, str) else types
-        if not any(_TYPES[t](value) for t in types):
-            return [
-                *errors,
-                f"{where}: must be {' or '.join(types)}, not {json.dumps(value)[:60]}",
-            ]
-    if "enum" in schema and value not in schema["enum"]:
-        errors.append(f"{where}: must be one of {schema['enum']}")
-    if isinstance(value, str):
-        if len(value) < schema.get("minLength", 0):
-            errors.append(f"{where}: must not be empty")
-        if "pattern" in schema and not re.search(schema["pattern"], value):
-            errors.append(f"{where}: {value!r} does not match {schema['pattern']}")
-    if isinstance(value, list) and "items" in schema:
-        for i, item in enumerate(value):
-            errors += schema_errors(item, schema["items"], root, f"{where}[{i}]")
-    if isinstance(value, dict):
-        errors += [
-            f"{where}: missing field '{key}'"
-            for key in schema.get("required", [])
-            if key not in value
-        ]
-        props = schema.get("properties", {})
-        for key, item in value.items():
-            if key in props:
-                errors += schema_errors(item, props[key], root, f"{where}.{key}")
-            elif schema.get("additionalProperties", True) is False:
-                errors.append(f"{where}: unknown field '{key}'")
-    return errors
-
-
-def subject_files(folder: Path) -> list[Path]:
-    """Return every ``*.json`` file below `folder`, without hidden files and folders."""
-    found: list[Path] = []
-    for dirpath, dirnames, filenames in os.walk(folder):
-        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
-        found += [
-            Path(dirpath, f) for f in filenames if f.endswith(".json") and not f.startswith(".")
-        ]
-    return sorted(found)
 
 
 def cmd_validate(root: Path) -> int:
@@ -239,6 +157,82 @@ def cmd_init(root: Path) -> int:
     return 0
 
 
+def cmd_add(root: Path, args: argparse.Namespace) -> int:
+    """Write one subject file for a git commit and print where it went.
+
+    Returns
+    -------
+    int
+        Always 0. Errors raise.
+    """
+    why = args.why
+    if args.why_file == "-":
+        # Bytes, then UTF-8: text stdin uses the locale encoding on Windows.
+        why = sys.stdin.buffer.read().decode("utf-8")
+    elif args.why_file is not None:
+        why = Path(args.why_file).read_text(encoding="utf-8")
+    path, subject = create_subject(
+        load_config(root),
+        repo=Path(args.repo),
+        subject_id=args.id,
+        title=args.title,
+        commit=args.commit,
+        base=args.base,
+        head=args.head,
+        package=args.package,
+        summary=args.summary,
+        why=why,
+        priority=args.priority,
+        recommended=args.recommended,
+        tags=args.tags,
+        branch=args.branch,
+        force=args.force,
+    )
+    if args.json:
+        print(json.dumps(subject, indent=2))
+    else:
+        print(
+            f"wrote {path} (changed paths: {len(subject['files'])}, "
+            f"{subject['base'][:12]}..{subject['head'][:12]})"
+        )
+    return 0
+
+
+def cmd_reviews(
+    root: Path, statuses: list[str] | None, package: str | None, subject_id: str | None, fmt: str
+) -> int:
+    """Print the review state of the subjects as JSON or as a short table.
+
+    Returns
+    -------
+    int
+        Always 0. Errors raise.
+    """
+    items = collect_reviews(
+        load_config(root), statuses=statuses, package=package, subject_id=subject_id
+    )
+    if fmt == "json":
+        print(json.dumps(items, indent=2))
+        return 0
+    rows = [("STATUS", "SUBJECT", "EDITS", "AT", "TITLE")]
+    rows += [
+        (
+            item["status"],
+            f"{item['package']}/{item['id']}",
+            str(len(item["edits"])),
+            str(item["at"] or "-"),
+            item["title"],
+        )
+        for item in items
+    ]
+    widths = [max(len(row[col]) for row in rows) for col in range(4)]
+    for row in rows:
+        cells = [cell.ljust(w) for cell, w in zip(row[:4], widths, strict=True)]
+        print("  ".join([*cells, row[4]]))
+    print(f"{len(items)} subjects")
+    return 0
+
+
 def cmd_serve(root: Path, host: str, port: int, open_browser: bool) -> int:
     """Run the HTTP server until interrupted."""
     config = load_config(root)
@@ -283,19 +277,68 @@ def main(argv: list[str] | None = None) -> int:
     init.add_argument("root", nargs="?", default=".", help="review root (default: .)")
     validate = sub.add_parser("validate", help="check every subject file")
     validate.add_argument("root", nargs="?", default=".", help="review root (default: .)")
+
+    add = sub.add_parser("add", help="write a subject file for a git commit")
+    add.add_argument("root", nargs="?", default=".", help="review root (default: .)")
+    add.add_argument("--repo", default=".", help="folder inside the git work tree (default: .)")
+    add.add_argument("--commit", help="commit to review against its first parent (default: HEAD)")
+    add.add_argument("--base", help="old side of the diff; use with --head")
+    add.add_argument("--head", help="new side of the diff; use with --base")
+    add.add_argument("--id", required=True, help="subject ID, unique inside its package")
+    add.add_argument("--title", required=True, help="one-line title")
+    add.add_argument("--package", help="package name (default: name of the work tree folder)")
+    add.add_argument("--summary", help="one sentence: what is wrong and what the change does")
+    why = add.add_mutually_exclusive_group()
+    why.add_argument("--why", help="reasons for the change, in Markdown")
+    why.add_argument(
+        "--why-file", metavar="PATH", help="read the reasons from PATH ('-': standard input)"
+    )
+    add.add_argument("--priority", help="for example P1, P2 or P3")
+    add.add_argument("--recommended", help="suggested verdict, for example accept")
+    add.add_argument("--tag", action="append", dest="tags", help="free label (repeatable)")
+    add.add_argument("--branch", help="branch name for the tree (default: the checked-out one)")
+    add.add_argument("--force", action="store_true", help="replace an existing subject file")
+    add.add_argument("--json", action="store_true", help="print the written subject as JSON")
+
+    reviews = sub.add_parser("reviews", help="print verdicts and edits")
+    reviews.add_argument("root", nargs="?", default=".", help="review root (default: .)")
+    reviews.add_argument(
+        "--status",
+        action="append",
+        dest="statuses",
+        choices=STATUSES,
+        help="keep only subjects with this status (repeatable)",
+    )
+    reviews.add_argument("--package", help="keep only subjects of this package")
+    reviews.add_argument("--id", help="keep only subjects with this ID")
+    reviews.add_argument(
+        "--format", choices=("json", "text"), default="json", help="output (default: json)"
+    )
+
+    sub.add_parser("guide", help="print the guide for coding agents")
     args = parser.parse_args(argv)
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    if args.command == "guide":
+        sys.stdout.write(GUIDE_PATH.read_text(encoding="utf-8"))
+        return 0
     root = Path(args.root)
     try:
         if args.command == "serve":
             return cmd_serve(root, args.host, args.port, args.open)
         if args.command == "init":
             return cmd_init(root)
+        if args.command == "add":
+            return cmd_add(root, args)
+        if args.command == "reviews":
+            return cmd_reviews(root, args.statuses, args.package, args.id, args.format)
         return cmd_validate(root)
     except ConfigError as exc:
         print(f"diffdesk: {exc}", file=sys.stderr)
         return 2
+    except (InvalidInput, GitError, OSError, ValueError) as exc:
+        print(f"diffdesk: {exc}", file=sys.stderr)
+        return 1
