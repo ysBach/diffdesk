@@ -16,10 +16,11 @@ folder, so agents can read them back.
 
 ## Install
 
+diffdesk is not on PyPI yet. Install it from GitHub:
+
 ```bash
-uvx diffdesk serve            # run without installing
-pipx install diffdesk         # or install the command
-uv tool install diffdesk      # or with uv
+uv tool install git+https://github.com/ysBach/diffdesk    # install the command
+uvx --from git+https://github.com/ysBach/diffdesk diffdesk serve    # run without installing
 ```
 
 ## Quick start
