@@ -1,7 +1,7 @@
 The fonts in this folder (KaTeX_*.woff2) are copied unchanged from the npm
-package katex, with their original names. The notice below is copied from the
-license field of the fonts (name table, name ID 13). Each font names its own
-family as its Reserved Font Name.
+package katex, with their original names. The notice below joins the license
+fields of the fonts (name table, name ID 13): each font carries the same two
+copyright lines and names its own family as its Reserved Font Name.
 
 Copyright (c) 2009-2010, Design Science, Inc. (<www.mathjax.org>)
 Copyright (c) 2014-2018 Khan Academy (<www.khanacademy.org>),
