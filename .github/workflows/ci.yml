@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run the tests
+        run: uv run --locked pytest
+
+  lint:
+    name: Format, lint and JavaScript syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+      - name: Check the format
+        run: uv run --locked ruff format --check
+      - name: Lint
+        run: uv run --locked ruff check
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "26"
+      - name: Check the JavaScript syntax
+        run: |
+          for f in src/diffdesk/static/app.js src/diffdesk/static/js/*.js \
+                   src/diffdesk/static/vendor/*.js vendor-src/build.mjs; do
+            node --check "$f"
+          done
+
+  wheel:
+    name: Wheel smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          python-version: "3.11"
+      - name: Build the sdist, then the wheel from the sdist
+        run: uv build
+      - name: Install the wheel in a new virtual environment outside the source tree
+        run: |
+          uv venv "$RUNNER_TEMP/venv"
+          uv pip install --python "$RUNNER_TEMP/venv/bin/python" dist/diffdesk-*.whl
+      - name: Run the installed command and serve a temporary review root
+        working-directory: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          export PATH="$RUNNER_TEMP/venv/bin:$PATH"
+          python -c 'import diffdesk, os, sys; p = diffdesk.__file__; print(p); sys.exit(not p.startswith(os.environ["RUNNER_TEMP"]))'
+          diffdesk --help
+          diffdesk guide
+          diffdesk init root
+          diffdesk serve root --port 0 > serve.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true; cat serve.log' EXIT
+          url=""
+          for _ in $(seq 100); do
+            url=$(grep -oE 'http://127\.0\.0\.1:[0-9]+/' serve.log | head -n 1 || true)
+            [ -n "$url" ] && break
+            sleep 0.1
+          done
+          test -n "$url"
+          curl -fsS -o index.html "$url"
+          grep -q 'src="app.js"' index.html
+          curl -fsS -o codemirror.js "${url}vendor/codemirror.js"
+          grep -q 'Bundled for diffdesk' codemirror.js
+          curl -fsS -o font.woff2 "${url}vendor/fonts/KaTeX_Main-Regular.woff2"
+          test "$(head -c 4 font.woff2)" = "wOF2"
+          curl -fsS -o meta.json "${url}api/meta"
+          python -c 'import json, sys; m = json.load(open("meta.json")); print(m); sys.exit(m["name"] != "diffdesk")'
