@@ -1,5 +1,7 @@
 Third-party code bundled in this folder by vendor-src/build.mjs.
-Every package below is under the MIT license. Each section is the package's own LICENSE file.
+Each section below is the full LICENSE file of one npm package, which may hold more than one notice.
+Every package declares the MIT license. The KaTeX fonts in fonts/ are under the SIL Open Font
+License 1.1 (see the last section).
 
 ==== @codemirror/autocomplete 6.20.4 (MIT) ====
 
@@ -593,3 +595,9 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+==== KaTeX fonts from katex 0.19.1 (OFL-1.1) ====
+
+The fonts/*.woff2 files are copied unchanged from the katex package and keep their names.
+They are under the SIL Open Font License 1.1, not the MIT license. Their copyright notices,
+Reserved Font Names and the full license text are in fonts/OFL.txt.

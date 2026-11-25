@@ -6,7 +6,8 @@
 //   node build.mjs --out DIR  # writes DIR instead
 //
 // Output: codemirror.js, marked.js, katex.js (minified ES modules), katex.css with
-// woff2 fonts only (fonts/), and LICENSES.txt with the license text of every bundled package.
+// woff2 fonts only (fonts/), fonts/OFL.txt (the font license, copied from OFL.txt here), and
+// LICENSES.txt with the license text of every bundled package.
 import { build } from 'esbuild';
 import { copyFile, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -91,6 +92,7 @@ async function katexCss() {
   const fonts = [...new Set([...woff2Only.matchAll(/url\(fonts\/([^)]+\.woff2)\)/g)].map((m) => m[1]))];
   await mkdir(path.join(out, 'fonts'), { recursive: true });
   for (const font of fonts) await copyFile(path.join(dist, 'fonts', font), path.join(out, 'fonts', font));
+  await copyFile(path.join(here, 'OFL.txt'), path.join(out, 'fonts', 'OFL.txt'));
   const head = await banner(['katex']);
   await writeFile(path.join(out, 'katex.css'), `${head}\n${woff2Only}`);
   return fonts.length;
@@ -101,7 +103,9 @@ async function licenses(inputs) {
   dirs.add(path.join(nodeModules, 'katex'));
   const parts = [
     'Third-party code bundled in this folder by vendor-src/build.mjs.',
-    'Every package below is under the MIT license. Each section is the package\'s own LICENSE file.',
+    'Each section below is the full LICENSE file of one npm package, which may hold more than one notice.',
+    'Every package declares the MIT license. The KaTeX fonts in fonts/ are under the SIL Open Font',
+    'License 1.1 (see the last section).',
   ];
   for (const dir of [...dirs].sort()) {
     const pkg = await readPackage(dir);
@@ -111,6 +115,13 @@ async function licenses(inputs) {
     const text = (await readFile(path.join(dir, file), 'utf8')).trim();
     parts.push(`\n==== ${pkg.name} ${pkg.version} (${pkg.license}) ====\n\n${text}`);
   }
+  const katex = await readPackage(path.join(nodeModules, 'katex'));
+  parts.push([
+    `\n==== KaTeX fonts from katex ${katex.version} (OFL-1.1) ====\n`,
+    'The fonts/*.woff2 files are copied unchanged from the katex package and keep their names.',
+    'They are under the SIL Open Font License 1.1, not the MIT license. Their copyright notices,',
+    'Reserved Font Names and the full license text are in fonts/OFL.txt.',
+  ].join('\n'));
   await writeFile(path.join(out, 'LICENSES.txt'), parts.join('\n') + '\n');
   return dirs.size;
 }
@@ -129,8 +140,8 @@ async function report() {
   }
   await walk(out);
   rows.sort((a, b) => a[0].localeCompare(b[0]));
-  const fonts = rows.filter((r) => r[0].startsWith('fonts'));
-  const shown = rows.filter((r) => !r[0].startsWith('fonts'));
+  const fonts = rows.filter((r) => r[0].endsWith('.woff2'));
+  const shown = rows.filter((r) => !r[0].endsWith('.woff2'));
   shown.push([`fonts/ (${fonts.length} woff2)`, fonts.reduce((s, r) => s + r[1], 0), fonts.reduce((s, r) => s + r[2], 0)]);
   for (const [name, raw, gz] of shown) {
     console.log(`${name.padEnd(28)} ${String(raw).padStart(9)} B raw  ${String(gz).padStart(9)} B gzip`);
