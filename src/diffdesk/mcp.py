@@ -54,7 +54,10 @@ INSTRUCTIONS = (
     "diffdesk is a review desk for commits: you write one subject per commit, "
     "a person reviews it, and you read the verdicts back. Call get_agent_guide "
     "once before your first add_subject call. After each commit, call add_subject. "
-    "Later, call list_reviews to read the verdicts, comments and edits."
+    "Later, call list_reviews to read the verdicts, comments and edits. For each "
+    "subject with status change or rejected, do what the comment and the edits ask, "
+    "make a new commit and call add_subject for it with a new id. Name the old "
+    "subject id in why."
 )
 
 _TEXT = {"type": "string", "minLength": 1}
@@ -155,7 +158,9 @@ TOOLS: list[dict[str, Any]] = [
             "and edits: [{path, edit_file}]. An edit file holds the full new content of "
             "one file as the person changed it, not a patch: compare it with that file "
             "at the subject's head commit. To find the work to do, ask for the "
-            "statuses change and rejected."
+            "statuses change and rejected. For each request, do what the comment and "
+            "the edits ask, make a new commit and call add_subject for it with a new "
+            "id. Name the old subject id in why."
         ),
         "inputSchema": {
             "type": "object",

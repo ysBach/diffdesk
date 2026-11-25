@@ -146,6 +146,7 @@ def test_modern_discover_and_tools_list(start: Callable[..., Mcp], root: Path) -
     assert discover["supportedVersions"] == [MODERN]
     assert discover["capabilities"] == {"tools": {}}
     assert "get_agent_guide" in discover["instructions"]
+    assert "new commit" in discover["instructions"]
     assert (discover["ttlMs"], discover["cacheScope"]) == (0, "public")
     assert discover["_meta"]["io.modelcontextprotocol/serverInfo"]["name"] == "diffdesk"
 
@@ -154,6 +155,8 @@ def test_modern_discover_and_tools_list(start: Callable[..., Mcp], root: Path) -
     assert [tool["name"] for tool in listed["tools"]] == TOOL_NAMES
     for tool in listed["tools"]:
         assert tool["description"] and tool["inputSchema"]["type"] == "object"
+    [reviews_tool] = [tool for tool in listed["tools"] if tool["name"] == "list_reviews"]
+    assert "add_subject" in reviews_tool["description"]
 
     result = server.call("list_reviews", {})
     assert result["resultType"] == "complete" and result["isError"] is False
