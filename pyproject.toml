@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "diffdesk"
+dynamic = ["version"]
+description = "Local, file-based review desk for commits made by agents or people"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+dependencies = []
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Version Control :: Git",
+]
+
+[project.scripts]
+diffdesk = "diffdesk.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[tool.hatch.version]
+path = "src/diffdesk/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/diffdesk"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/diffdesk", "tests", "vendor-src/package.json", "vendor-src/package-lock.json", "vendor-src/build.mjs", "README.md", "CHANGELOG.md", "LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 99
+target-version = "py311"
+extend-exclude = ["src/diffdesk/static", "vendor-src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
