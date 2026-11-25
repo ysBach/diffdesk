@@ -345,6 +345,13 @@ def test_edit_write_and_remove(client: Client, root: Path) -> None:
     assert client.request("GET", "/api/subject?id=A-12").json()["edited"] is False
 
 
+def test_edit_keeps_crlf_line_endings(client: Client, root: Path) -> None:
+    content = "one\r\ntwo\r\n"
+    client.request("POST", "/api/edit", {"id": "A-12", "path": "a.py", "content": content})
+    assert (root / "edits/alpha/A-12/a.py").read_bytes() == content.encode()
+    assert client.request("GET", "/api/diff?id=A-12&path=a.py").json()["edit"] == content
+
+
 def test_edit_validation(client: Client, root: Path) -> None:
     cases = [
         {"id": "A-12", "path": "b.txt", "content": "x"},

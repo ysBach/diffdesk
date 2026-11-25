@@ -428,7 +428,7 @@ class DiffdeskServer(ThreadingHTTPServer):
             return {"hunks": hunks, "binary": binary}
         base, head = gitio.read_blobs(s.repo, [(s.base, path), (s.head, path)])
         target = self.edit_target(s, path)
-        edit = target.read_text(encoding="utf-8") if target.is_file() else None
+        edit = target.read_bytes().decode("utf-8", errors="replace") if target.is_file() else None
         binary = any(b is not None and b"\0" in b for b in (base, head))
         return {
             "base": None if binary or base is None else base.decode("utf-8", errors="replace"),
