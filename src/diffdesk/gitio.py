@@ -365,11 +365,16 @@ def current_branch(repo: str) -> str | None:
 
 
 def toplevel(folder: str) -> str | None:
-    """Return the top folder of the work tree that contains `folder`, or `None`."""
+    """Return the top folder of the work tree that contains `folder`, or `None`.
+
+    The path uses the separator of the operating system; git prints ``/``
+    on Windows too.
+    """
     try:
-        return run_git(folder, ["rev-parse", "--show-toplevel"]).decode().strip() or None
+        out = run_git(folder, ["rev-parse", "--show-toplevel"]).decode().strip()
     except GitError:
         return None
+    return str(Path(out)) if out else None
 
 
 def first_commit(repo: str) -> str | None:
