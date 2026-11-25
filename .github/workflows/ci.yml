@@ -81,6 +81,7 @@ jobs:
           pid=$!
           trap 'kill "$pid" 2>/dev/null || true; cat serve.log' EXIT
           url=""
+          # 100 tries, 0.1 s apart: an arbitrary limit.
           for _ in $(seq 100); do
             url=$(grep -oE 'http://127\.0\.0\.1:[0-9]+/' serve.log | head -n 1 || true)
             [ -n "$url" ] && break
