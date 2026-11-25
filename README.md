@@ -1,5 +1,7 @@
 # diffdesk
 
+<!-- mcp-name: io.github.ysBach/diffdesk -->
+
 A local, file-based review desk for commits made by coding agents or by people.
 
 ## What it is
@@ -16,11 +18,16 @@ folder, so agents can read them back.
 
 ## Install
 
-diffdesk is not on PyPI yet. Install it from GitHub:
+```bash
+uv tool install diffdesk     # install the command with uv
+pipx install diffdesk        # or with pipx
+uvx diffdesk serve review    # or run it without installing
+```
+
+To install the newest code from GitHub instead:
 
 ```bash
-uv tool install git+https://github.com/ysBach/diffdesk    # install the command
-uvx --from git+https://github.com/ysBach/diffdesk diffdesk serve    # run without installing
+uv tool install git+https://github.com/ysBach/diffdesk
 ```
 
 ## Quick start
@@ -217,7 +224,8 @@ defaults" removes the values chosen in the browser.
 
 Any agent that can run shell commands can use diffdesk. `diffdesk guide` prints
 a short guide for agents. Tell the agent to run it, or paste its output into the
-agent's instructions.
+agent's instructions. Agents that support MCP can use the MCP server instead
+(see "Use with AI tools").
 
 1. The agent commits one change and runs `diffdesk add` to write a subject for it.
 2. You review the subjects in the browser (`diffdesk serve`).
@@ -281,6 +289,184 @@ Exit codes of all commands: 0 on success, 1 if the command fails (the message
 goes to standard error), 2 if `diffdesk.toml` or the command line is not valid.
 `diffdesk validate` also gives 1 if a subject file has a problem.
 
+## Use with AI tools
+
+diffdesk works with a coding agent in one of two ways:
+
+1. **Commands.** An agent that can run shell commands uses `diffdesk add`,
+   `diffdesk reviews` and `diffdesk guide` (see "How agents use it").
+2. **MCP server.** `diffdesk mcp [--root PATH]` runs an MCP server on standard
+   input and output (stdio). Its tools do the work of the commands:
+
+   | Tool | Same as |
+   | --- | --- |
+   | `add_subject` | `diffdesk add` |
+   | `list_reviews` | `diffdesk reviews` |
+   | `get_agent_guide` | `diffdesk guide` |
+   | `validate_subjects` | `diffdesk validate` |
+
+The MCP server uses the review root given by `--root`, else the environment
+variable `DIFFDESK_ROOT`, else the folder in which the tool starts the server.
+If the tool starts it in another folder, add `"--root", "/absolute/path/to/review"`
+after `"mcp"` in the arguments. The server speaks MCP revisions 2026-07-28,
+2025-11-25 and 2025-06-18.
+
+If diffdesk is not installed, use `uvx` as the command and `diffdesk mcp` as its
+arguments: `"command": "uvx", "args": ["diffdesk", "mcp"]`.
+
+Each setup below follows the documentation of the tool (read in November 2026).
+The label after each tool name says whether the setup was run with diffdesk.
+
+### Claude Code (set up per docs, not run)
+
+```bash
+claude mcp add --transport stdio --scope project diffdesk -- diffdesk mcp
+```
+
+`--scope project` stores the server in `.mcp.json` in the project. You can also
+write that file yourself:
+
+```json
+{
+  "mcpServers": {
+    "diffdesk": { "command": "diffdesk", "args": ["mcp"] }
+  }
+}
+```
+
+### Codex CLI (set up per docs, not run)
+
+```bash
+codex mcp add diffdesk -- diffdesk mcp
+```
+
+Or add this to `~/.codex/config.toml` (or `.codex/config.toml` in a trusted
+project):
+
+```toml
+[mcp_servers.diffdesk]
+command = "diffdesk"
+args = ["mcp"]
+```
+
+### Gemini CLI (set up per docs, not run)
+
+```bash
+gemini mcp add -s project diffdesk diffdesk mcp
+```
+
+Or add this to `.gemini/settings.json` in the project (or
+`~/.gemini/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "diffdesk": { "command": "diffdesk", "args": ["mcp"] }
+  }
+}
+```
+
+### Cursor (set up per docs, not run)
+
+Add this to `.cursor/mcp.json` in the project (or `~/.cursor/mcp.json` for every
+project). The Cursor CLI (`agent`) reads the same file.
+
+```json
+{
+  "mcpServers": {
+    "diffdesk": { "type": "stdio", "command": "diffdesk", "args": ["mcp"] }
+  }
+}
+```
+
+### opencode (set up per docs, not run)
+
+```bash
+opencode mcp add diffdesk -- diffdesk mcp
+```
+
+Or add this to `opencode.json` in the project (or
+`~/.config/opencode/opencode.json`):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "servers": {
+      "diffdesk": { "type": "local", "command": ["diffdesk", "mcp"] }
+    }
+  }
+}
+```
+
+This is the opencode V2 format. In V1, the server goes directly under `"mcp"`,
+without `"servers"`.
+
+### VS Code with GitHub Copilot (set up per docs, not run)
+
+Add this to `.mcp.json` at the root of the workspace (or
+`~/.copilot/mcp-config.json` for every workspace):
+
+```json
+{
+  "mcpServers": {
+    "diffdesk": { "type": "stdio", "command": "diffdesk", "args": ["mcp"], "tools": ["*"] }
+  }
+}
+```
+
+For new Copilot setups, VS Code marks the older `.vscode/mcp.json` file (with
+`"servers"` in place of `"mcpServers"`) as deprecated.
+
+### Devin Desktop, formerly Windsurf (set up per docs, not run)
+
+With the Devin CLI:
+
+```bash
+devin mcp add -s project diffdesk -- diffdesk mcp
+```
+
+Or add this to `.devin/mcp_config.json` in the project (or
+`~/.config/devin/mcp_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "diffdesk": { "command": "diffdesk", "args": ["mcp"] }
+  }
+}
+```
+
+### Grok Build (set up per docs, not run)
+
+```bash
+grok mcp add --scope project diffdesk -- diffdesk mcp
+```
+
+Or add this to `.grok/config.toml` in the project (or `~/.grok/config.toml`):
+
+```toml
+[mcp_servers.diffdesk]
+command = "diffdesk"
+args = ["mcp"]
+```
+
+Grok Build also reads a project `.mcp.json` in the Claude Code format above.
+
+### Agents without MCP
+
+Add this line to the instruction file of the agent (`AGENTS.md`, `CLAUDE.md` or
+`GEMINI.md`):
+
+```text
+For every change you commit, follow the steps that `diffdesk guide` prints.
+```
+
+Codex, Cursor, opencode, VS Code with Copilot, Devin and Grok Build read
+`AGENTS.md`. Claude Code reads `CLAUDE.md`. Gemini CLI reads `GEMINI.md`.
+
 ## License
 
-MIT. See `LICENSE`.
+MIT. See `LICENSE`. The bundled CodeMirror, marked and KaTeX code keep their own
+license texts in `src/diffdesk/static/vendor/LICENSES.txt`. The KaTeX fonts are
+under the SIL Open Font License 1.1, see `src/diffdesk/static/vendor/fonts/OFL.txt`.
