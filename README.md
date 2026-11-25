@@ -30,6 +30,8 @@ cd my-project
 diffdesk init review          # creates review/diffdesk.toml, review/subjects/, review/edits/
 diffdesk validate review      # checks every subject file
 diffdesk serve review --open  # opens http://127.0.0.1:8765/
+diffdesk add review --id FIX-1 --title "Fix the pager"   # subject for the last commit
+diffdesk reviews review       # verdicts and edits as JSON
 ```
 
 If `review/` is inside a git repository that has at least one commit, `init`
@@ -41,7 +43,7 @@ commit of that repository. Delete it when you add real subjects.
 ```
 review/
   diffdesk.toml          optional settings
-  subjects/<package>/<ID>.json   written by agents
+  subjects/<package>/<ID>.json   written by agents (diffdesk add)
   reviews.json           written by diffdesk: every verdict, oldest first
   edits/<package>/<ID>/<path>    written by diffdesk: your edited new side of a file
   .diffdesk-cache/       written by diffdesk: line counts (safe to delete)
@@ -89,8 +91,8 @@ subjects = "subjects"
 reviews = "reviews.json"
 edits = "edits"
 cache = ".diffdesk-cache"
-[packages.astroimred]
-depends_on = ["astroapers", "imcombiners", "reducers"]
+[packages.webapp]          # used by the flow view
+depends_on = ["core", "utils"]
 [ui]                       # defaults for the settings panel
 theme = "system"
 editor = "codemirror"
@@ -213,14 +215,71 @@ defaults" removes the values chosen in the browser.
 
 ## How agents use it
 
-1. Commit one change per subject. Write `subjects/<package>/<ID>.json` with
-   `repo`, `base` (usually `<commit>^`), `head` (`<commit>`), `files`, `title`,
-   `summary` and `why`.
-2. Run `diffdesk validate <root>`. It exits with 1 if a file has a problem.
-3. If you rewrite the branch, update `base` and `head` in every affected file.
-4. Read the verdicts from `reviews.json`. The last record for a subject wins.
-5. Read edits from `edits/<package>/<ID>/<path>`. Each file is the full new
-   content that the reviewer wants for that path.
+Any agent that can run shell commands can use diffdesk. `diffdesk guide` prints
+a short guide for agents. Tell the agent to run it, or paste its output into the
+agent's instructions.
+
+1. The agent commits one change and runs `diffdesk add` to write a subject for it.
+2. You review the subjects in the browser (`diffdesk serve`).
+3. The agent runs `diffdesk reviews --status change --status rejected` to read
+   your verdicts, comments and edits.
+4. An edit file holds the full new content of a file, as you changed it. The
+   agent compares it with the file at the subject's `head`.
+
+If the agent rewrites a commit (rebase or amend), it runs `diffdesk add` again
+with the same `--id` and `--force`, so that the subject points at the new commit.
+
+### `diffdesk add [ROOT]`
+
+Writes `<subjects>/<package>/<ID>.json` for one commit or a commit range. The
+command gets these fields from git: `repo` (absolute path of the top folder of
+the work tree), `base` and `head` (full commit IDs), and `files` (every path
+changed between `base` and `head`). The diff has no rename detection, so a
+renamed file is listed with its old and new path, and a deleted file with its
+old path. The command checks the subject against `subject.schema.json` and
+writes the file atomically.
+
+| Option | Meaning |
+| --- | --- |
+| `--id ID` | Required. Subject ID (same rules as the `id` field). |
+| `--title TEXT` | Required. One-line title. |
+| `--repo PATH` | A folder inside the git work tree. Default: the current folder. |
+| `--commit REV` | Commit to review against its first parent. Default: `HEAD`. A commit without a parent is compared with the empty tree. |
+| `--base REV --head REV` | A commit range, instead of `--commit`. |
+| `--package NAME` | Default: the name of the work tree folder. |
+| `--summary`, `--priority`, `--recommended`, `--branch` | Subject fields of the same name. |
+| `--why TEXT` or `--why-file PATH` | Reasons in Markdown. `--why-file -` reads standard input (UTF-8). |
+| `--tag TEXT` | Free label. Repeatable. |
+| `--force` | Replace an existing subject file. |
+| `--json` | Print the written subject as JSON. |
+
+The command refuses to write if the subject file exists (without `--force`), if
+another file holds a subject with the same package and ID, if the file would be
+outside the review root, or if the review root does not exist.
+
+### `diffdesk reviews [ROOT]`
+
+Prints a JSON list with one object for each subject, in the order of the tree:
+
+| Field | Meaning |
+| --- | --- |
+| `id`, `package`, `title` | The subject. |
+| `status` | `pending`, `accepted`, `rejected` or `change`. |
+| `verdict`, `comment`, `at` | The last review record (`at` is read from `time` in old records). Null if there is no record. |
+| `history_count` | Number of review records for the subject. |
+| `repo`, `head` | Work tree and new-side commit of the subject. |
+| `edits` | `[{path, edit_file}]`: the file path in the repository and the absolute path of the saved edit. |
+
+Filters: `--status STATUS` (repeatable), `--package NAME`, `--id ID`.
+`--format text` prints a short table instead of JSON.
+
+### `diffdesk guide`
+
+Prints the guide for agents. The text is `agent_guide.md` inside the package.
+
+Exit codes of all commands: 0 on success, 1 if the command fails (the message
+goes to standard error), 2 if `diffdesk.toml` or the command line is not valid.
+`diffdesk validate` also gives 1 if a subject file has a problem.
 
 ## License
 

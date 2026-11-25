@@ -5,6 +5,7 @@
 ### Added
 
 - `diffdesk serve`, `diffdesk init` and `diffdesk validate` commands.
+- `diffdesk add`, `diffdesk reviews` and `diffdesk guide` commands for coding agents.
 - HTTP API version 1: `/api/meta`, `/api/tree`, `/api/subjects`, `/api/subject`,
   `/api/flow`, `/api/treemap`, `/api/diff`, `POST /api/review`, `POST /api/edit`.
 - Subject index cached by file modification time, line counts cached in
