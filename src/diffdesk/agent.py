@@ -107,14 +107,19 @@ def schema_errors(
 
 
 def subject_files(folder: Path) -> list[Path]:
-    """Return every ``*.json`` file below `folder`, without hidden files and folders."""
+    """Return every ``*.json`` file below `folder`, without hidden files and folders.
+
+    The files are sorted by their path text, as the index sorts them, so both
+    take the same file as the first of two duplicates. Sorting `Path` objects
+    would ignore case on Windows.
+    """
     found: list[Path] = []
     for dirpath, dirnames, filenames in os.walk(folder):
         dirnames[:] = [d for d in dirnames if not d.startswith(".")]
         found += [
             Path(dirpath, f) for f in filenames if f.endswith(".json") and not f.startswith(".")
         ]
-    return sorted(found)
+    return sorted(found, key=str)
 
 
 def validate_subjects(config: Config) -> dict[str, Any]:
