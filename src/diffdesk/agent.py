@@ -117,6 +117,66 @@ def subject_files(folder: Path) -> list[Path]:
     return sorted(found)
 
 
+def validate_subjects(config: Config) -> dict[str, Any]:
+    """Check every subject file of a review root.
+
+    Each file must be JSON that matches ``subject.schema.json``, with both or
+    neither of ``base`` and ``head``, and no two files may hold the same
+    package and ID. An ID used in more than one package is a warning.
+
+    Parameters
+    ----------
+    config : Config
+        Settings of the review root.
+
+    Returns
+    -------
+    dict
+        ``files``: number of subject files. ``problems`` and ``warnings``:
+        lists of messages. A problem starts with the file path relative to
+        the root.
+    """
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    problems: list[str] = []
+    warnings: list[str] = []
+    owners: dict[tuple[str, str], Path] = {}
+    packages_of: dict[str, list[str]] = {}
+    files = subject_files(config.subjects)
+    for path in files:
+        rel = (
+            path.relative_to(config.root).as_posix() if path.is_relative_to(config.root) else path
+        )
+        try:
+            data = json.loads(path.read_bytes())
+        except (OSError, ValueError) as exc:
+            problems.append(f"{rel}: cannot read JSON: {exc}")
+            continue
+        errors = schema_errors(data, schema, schema, "$")
+        if isinstance(data, dict) and (data.get("base") is None) != (data.get("head") is None):
+            errors.append("'base' and 'head' must both be set or both be null")
+        problems += [f"{rel}: {e}" for e in errors]
+        parts = path.relative_to(config.subjects).parts
+        try:
+            subject = parse_subject(path, parts[0] if len(parts) > 1 else DEFAULT_PACKAGE)
+        except ValueError as exc:
+            if not errors:
+                problems.append(f"{rel}: {exc}")
+            continue
+        if subject.key in owners:
+            first = owners[subject.key].relative_to(config.root).as_posix()
+            problems.append(f"{rel}: same package and ID as {first}")
+            continue
+        owners[subject.key] = path
+        packages_of.setdefault(subject.id, []).append(subject.package)
+    for sid, packages in sorted(packages_of.items()):
+        if len(packages) > 1:
+            warnings.append(
+                f"ID {sid} is used in packages {', '.join(packages)}; "
+                "API calls for it need 'package'"
+            )
+    return {"files": len(files), "problems": problems, "warnings": warnings}
+
+
 def create_subject(
     config: Config,
     *,

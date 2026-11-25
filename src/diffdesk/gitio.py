@@ -90,7 +90,7 @@ def check_path(path: Any) -> str:
     return path
 
 
-def run_git(repo: str, args: list[str], stdin: bytes | None = None) -> bytes:
+def run_git(repo: str, args: list[str], stdin: bytes = b"") -> bytes:
     """Run ``git -C <repo> <args>`` and return its standard output.
 
     Parameters
@@ -100,7 +100,9 @@ def run_git(repo: str, args: list[str], stdin: bytes | None = None) -> bytes:
     args : list of str
         Git subcommand and its arguments.
     stdin : bytes, optional
-        Data for the standard input of git.
+        Data for the standard input of git. Default: empty, so that git
+        never reads the standard input of diffdesk (the MCP channel of
+        ``diffdesk mcp``).
 
     Returns
     -------

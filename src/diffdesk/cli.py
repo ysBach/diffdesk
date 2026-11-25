@@ -1,10 +1,11 @@
-"""Command line: serve, init, validate, add, reviews and guide."""
+"""Command line: serve, init, validate, add, reviews, guide and mcp."""
 
 from __future__ import annotations
 
 import argparse
 import json
 import logging
+import os
 import sys
 import webbrowser
 from pathlib import Path
@@ -12,15 +13,15 @@ from pathlib import Path
 from . import __version__, gitio
 from .agent import (
     GUIDE_PATH,
-    SCHEMA_PATH,
     collect_reviews,
     create_subject,
-    schema_errors,
     subject_files,
+    validate_subjects,
 )
 from .config import CONFIG_NAME, ConfigError, load_config
 from .gitio import GitError, InvalidInput
-from .index import DEFAULT_PACKAGE, STATUSES, parse_subject
+from .index import STATUSES
+from .mcp import serve_stdio
 from .server import DiffdeskServer
 
 log = logging.getLogger(__name__)
@@ -52,50 +53,13 @@ def cmd_validate(root: Path) -> int:
     int
         0 if no problem was found, else 1. Warnings do not change it.
     """
-    config = load_config(root)
-    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
-    problems: list[str] = []
-    warnings: list[str] = []
-    owners: dict[tuple[str, str], Path] = {}
-    packages_of: dict[str, list[str]] = {}
-    files = subject_files(config.subjects)
-    for path in files:
-        rel = (
-            path.relative_to(config.root).as_posix() if path.is_relative_to(config.root) else path
-        )
-        try:
-            data = json.loads(path.read_bytes())
-        except (OSError, ValueError) as exc:
-            problems.append(f"{rel}: cannot read JSON: {exc}")
-            continue
-        errors = schema_errors(data, schema, schema, "$")
-        if isinstance(data, dict) and (data.get("base") is None) != (data.get("head") is None):
-            errors.append("'base' and 'head' must both be set or both be null")
-        problems += [f"{rel}: {e}" for e in errors]
-        parts = path.relative_to(config.subjects).parts
-        try:
-            subject = parse_subject(path, parts[0] if len(parts) > 1 else DEFAULT_PACKAGE)
-        except ValueError as exc:
-            if not errors:
-                problems.append(f"{rel}: {exc}")
-            continue
-        if subject.key in owners:
-            first = owners[subject.key].relative_to(config.root).as_posix()
-            problems.append(f"{rel}: same package and ID as {first}")
-            continue
-        owners[subject.key] = path
-        packages_of.setdefault(subject.id, []).append(subject.package)
-    for sid, packages in sorted(packages_of.items()):
-        if len(packages) > 1:
-            warnings.append(
-                f"ID {sid} is used in packages {', '.join(packages)}; "
-                "API calls for it need 'package'"
-            )
+    result = validate_subjects(load_config(root))
+    problems, warnings = result["problems"], result["warnings"]
     for line in problems:
         print(f"problem: {line}")
     for line in warnings:
         print(f"warning: {line}")
-    print(f"{len(files)} subject files, {len(problems)} problems, {len(warnings)} warnings")
+    print(f"{result['files']} subject files, {len(problems)} problems, {len(warnings)} warnings")
     return 1 if problems else 0
 
 
@@ -316,6 +280,10 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     sub.add_parser("guide", help="print the guide for coding agents")
+    mcp = sub.add_parser("mcp", help="run an MCP server on standard input and output")
+    mcp.add_argument(
+        "--root", help="review root (default: $DIFFDESK_ROOT, else the current folder)"
+    )
     args = parser.parse_args(argv)
 
     logging.basicConfig(
@@ -325,6 +293,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "guide":
         sys.stdout.write(GUIDE_PATH.read_text(encoding="utf-8"))
         return 0
+    if args.command == "mcp":
+        return serve_stdio(Path(args.root or os.environ.get("DIFFDESK_ROOT") or "."))
     root = Path(args.root)
     try:
         if args.command == "serve":
