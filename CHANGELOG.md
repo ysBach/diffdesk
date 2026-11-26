@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1 (2026-11-26)
+
+Shorter README. Setup for each AI tool moved to `docs/setup.md`, and settings,
+commands and the HTTP API moved to `docs/settings.md`.
+
 ## 0.1.0 (2026-11-26)
 
 First release.
