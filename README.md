@@ -323,16 +323,20 @@ The label after each tool name says whether the setup was run with diffdesk.
 
 ### Tested with
 
-The test on 2026-11-25 used a small git repository with one bug and one failing
-test. Round 1: the agent fixed the bug, made a commit and wrote a subject.
+The tests on 2026-11-25 and 2026-11-26 used a small git repository with one
+bug and one failing test. Round 1: the agent fixed the bug, made a commit and
+wrote a subject.
 Then a person asked for a change, with a comment and an edit of the fixed file.
 Round 2: the agent read the review, made a new commit and wrote a new subject.
 
 | Tool | Version | Model | MCP result | CLI result |
 | --- | --- | --- | --- | --- |
+| Claude Code | 2.1.308 | claude-opus-5-5 | Round 1 and round 2 passed (MCP revision 2026-07-28). | Round 1 passed (`diffdesk add`). |
 | Codex CLI | 0.162.1 | gpt-6-luna | Round 1 and round 2 passed (MCP revision 2025-06-18). | Round 1 passed (`diffdesk guide`, then `diffdesk add`). |
+| A Gemini model through shell commands (not Gemini CLI) | - | gemini-3.8-flash | Not run. | Round 1 and round 2 passed. |
+| opencode | 1.19.4 | none | The server connected (MCP revision 2025-11-25). Model runs did not finish because of model service errors. | Not run. |
 
-### Claude Code (set up per docs, not run)
+### Claude Code (tested 2026-11-26, Claude Code 2.1.308, claude-opus-5-5)
 
 ```bash
 claude mcp add --transport stdio --scope project diffdesk -- diffdesk mcp
@@ -394,7 +398,7 @@ project). The Cursor CLI (`agent`) reads the same file.
 }
 ```
 
-### opencode (set up per docs, not run)
+### opencode (MCP connection tested 2026-11-25, opencode 1.19.4, model runs not completed)
 
 ```bash
 opencode mcp add diffdesk -- diffdesk mcp
